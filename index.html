@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal To-Do</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-zinc-50 dark:bg-zinc-950 text-zinc-800 dark:text-zinc-100 min-h-screen transition-colors duration-200 antialiased flex flex-col justify-between">
+
+    <div class="w-full max-w-lg mx-auto px-4 py-12 sm:py-16">
+        <!-- Header: Title & Theme Switch -->
+        <header class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Tasks</h1>
+                <p id="taskCounter" class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">0 tasks</p>
+            </div>
+            
+            <!-- Dark / Light Mode Toggle Button -->
+            <button 
+                id="themeToggleBtn"
+                type="button" 
+                aria-label="Toggle theme"
+                class="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+            >
+                <!-- Sun Icon -->
+                <svg id="sunIcon" class="w-4 h-4 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="4"></circle>
+                    <path d="M12 2v2"></path>
+                    <path d="M12 20v2"></path>
+                    <path d="m4.93 4.93 1.41 1.41"></path>
+                    <path d="m17.66 17.66 1.41 1.41"></path>
+                    <path d="M2 12h2"></path>
+                    <path d="M20 12h2"></path>
+                    <path d="m6.34 17.66-1.41 1.41"></path>
+                    <path d="m19.07 4.93-1.41 1.41"></path>
+                </svg>
+                <!-- Moon Icon -->
+                <svg id="moonIcon" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+                </svg>
+            </button>
+        </header>
+
+        <form id="todoForm" class="flex items-center gap-2 mb-6">
+            <input 
+                id="taskInput" 
+                type="text" 
+                placeholder="Add a new task..." 
+                autocomplete="off"
+                class="flex-1 px-4 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 transition shadow-sm"
+            />
+            <button 
+                type="submit" 
+                class="px-5 py-3 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl text-sm font-medium transition shadow-sm active:scale-95"
+            >
+                Add
+            </button>
+        </form>
+
+        <ul id="taskList" class="space-y-2">
+            <!-- Dynamic task items injected via JavaScript -->
+        </ul>
+
+        <!-- Empty state placeholder -->
+        <div id="emptyState" class="hidden text-center py-12 text-zinc-400 dark:text-zinc-600">
+            <p class="text-sm">No tasks yet. Add one above!</p>
+        </div>
+    </div>
+
+    <footer class="py-6 text-center text-xs text-zinc-400 dark:text-zinc-600">
+        Minimalist To-Do • Add from anywhere with <span class="font-mono">?add=Your+Task</span>
+    </footer>
+
+    <script>
+        // State variables
+        let tasks = [];
+
+        // DOM elements
+        const form = document.getElementById('todoForm');
+        const taskInput = document.getElementById('taskInput');
+        const taskList = document.getElementById('taskList');
+        const emptyState = document.getElementById('emptyState');
+        const taskCounter = document.getElementById('taskCounter');
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const sunIcon = document.getElementById('sunIcon');
+        const moonIcon = document.getElementById('moonIcon');
+
+        function initTheme() {
+            const isDarkMode = localStorage.getItem('theme') === 'dark' || 
+                (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            
+            if (isDarkMode) {
+                document.documentElement.classList.add('dark');
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            }
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            sunIcon.classList.toggle('hidden', !isDark);
+            moonIcon.classList.toggle('hidden', isDark);
+        });
+
+        function loadTasks() {
+            try {
+                const saved = localStorage.getItem('minimal_tasks');
+                tasks = saved ? JSON.parse(saved) : [];
+            } catch (e) {
+                tasks = [];
+            }
+        }
+
+        function saveTasks() {
+            try {
+                localStorage.setItem('minimal_tasks', JSON.stringify(tasks));
+            } catch (e) {
+                console.error("Failed to save tasks", e);
+            }
+        }
+
+        function addTask(title) {
+            const trimmed = title.trim();
+            if (!trimmed) return;
+            
+            tasks.unshift({
+                id: Date.now().toString(),
+                title: trimmed,
+                completed: false
+            });
+            saveTasks();
+            renderTasks();
+        }
+
+        function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                saveTasks();
+                renderTasks();
+            }
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            saveTasks();
+            renderTasks();
+        }
+
+        function renderTasks() {
+            taskList.innerHTML = '';
+
+            const remaining = tasks.filter(t => !t.completed).length;
+            const total = tasks.length;
+            taskCounter.textContent = `${remaining} remaining · ${total} total`;
+
+            if (tasks.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            tasks.forEach(task => {
+                const li = document.createElement('li');
+                li.className = "flex items-center justify-between gap-3 p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/90 rounded-xl transition shadow-xs group";
+
+                // Checkbox & text
+                const left = document.createElement('div');
+                left.className = "flex items-center gap-3 min-w-0 flex-1 cursor-pointer";
+                left.onclick = () => toggleTask(task.id);
+
+                const checkbox = document.createElement('div');
+                checkbox.className = `w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition ${
+                    task.completed 
+                        ? 'bg-zinc-900 border-zinc-900 dark:bg-zinc-100 dark:border-zinc-100 text-white dark:text-zinc-900' 
+                        : 'border-zinc-300 dark:border-zinc-700 bg-transparent'
+                }`;
+                checkbox.innerHTML = task.completed ? `
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                ` : '';
+
+                const text = document.createElement('span');
+                text.className = `text-sm truncate select-none transition ${
+                    task.completed 
+                        ? 'line-through text-zinc-400 dark:text-zinc-500' 
+                        : 'text-zinc-800 dark:text-zinc-200'
+                }`;
+                text.textContent = task.title;
+
+                left.appendChild(checkbox);
+                left.appendChild(text);
+
+                // Delete Button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.setAttribute('aria-label', 'Delete task');
+                deleteBtn.className = "p-1.5 text-zinc-400 hover:text-red-500 rounded-lg transition opacity-80 sm:opacity-0 group-hover:opacity-100";
+                deleteBtn.innerHTML = `
+                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6 6 18"></path>
+                        <path d="m6 6 12 12"></path>
+                    </svg>
+                `;
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteTask(task.id);
+                };
+
+                li.appendChild(left);
+                li.appendChild(deleteBtn);
+                taskList.appendChild(li);
+            });
+        }
+
+        function checkUrlQuickAdd() {
+            const params = new URLSearchParams(window.location.search);
+            const externalTask = params.get('add') || params.get('task') || params.get('text');
+            if (externalTask) {
+                addTask(externalTask);
+                // Clear query string from URL without refreshing
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+        }
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (taskInput.value.trim()) {
+                addTask(taskInput.value);
+                taskInput.value = '';
+            }
+        });
+
+        // Initialize
+        initTheme();
+        loadTasks();
+        checkUrlQuickAdd();
+        renderTasks();
+    </script>
+</body>
+</html>
